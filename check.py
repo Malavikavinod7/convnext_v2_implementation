@@ -1,28 +1,32 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
 import torch
-import torchvision.models as models
-import torch.nn as nn
-import os
 
-# Path to best model
-model_path = os.path.join("outputs", "best_model.pth")
+from model import get_model
 
-# Load ConvNeXt Base backbone
-model = models.convnext_base(weights=None)  # No pretrained weights since we load ours
 
-# Replace classifier head exactly as in training
-in_features = model.classifier[2].in_features
-model.classifier[2] = nn.Sequential(
-    nn.Dropout(0.5),
-    nn.Linear(in_features, 1024),
-    nn.GELU(),
-    nn.Dropout(0.3),
-    nn.Linear(1024,  len(os.listdir("C:/Users/DELL/OneDrive/Desktop/convnext_v2_implementation/data_split/train")))
-)
+def main():
+    parser = argparse.ArgumentParser(description="Load and inspect a trained checkpoint")
+    parser.add_argument("--checkpoint", type=str, default=str(Path(__file__).resolve().parent / "outputs" / "best_model.pth"), help="Path to the checkpoint")
+    parser.add_argument("--num-classes", type=int, default=2, help="Number of classes in the trained model")
+    args = parser.parse_args()
 
-# Load the trained weights
-model.load_state_dict(torch.load(model_path, map_location="cpu"))
+    checkpoint_path = Path(args.checkpoint)
+    if not checkpoint_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-print("✅ Model loaded successfully from:", model_path)
-print(model)  # This will display the architecture for your screenshot
+    model = get_model(num_classes=args.num_classes, pretrained=False)
+    model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
+    model.eval()
+
+    print(f"Model loaded successfully from: {checkpoint_path}")
+    print(model)
+
+
+if __name__ == "__main__":
+    main()
 
 
