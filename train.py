@@ -71,6 +71,8 @@ def parse_args():
     parser.add_argument("--img-size", type=int, default=224)
     parser.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "cuda"], help="Training device")
     parser.add_argument("--model-name", type=str, default="convnext_tiny", choices=["convnext_tiny", "convnext_base"])
+    parser.add_argument("--pretrained", type=str, default="true", choices=["true", "false"], help="Use ImageNet-pretrained weights")
+    parser.add_argument("--num-workers", type=int, default=0, help="Number of DataLoader workers")
     return parser.parse_args()
 
 
@@ -86,12 +88,13 @@ def train_model(args=None):
 
     train_dataset, val_dataset = get_datasets(img_size=args.img_size, data_dir=args.data_dir)
     num_classes = len(train_dataset.classes)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=torch.cuda.is_available())
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=torch.cuda.is_available())
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=torch.cuda.is_available())
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=torch.cuda.is_available())
 
     print(f"DataLoaders ready. Train: {len(train_loader)}, Val: {len(val_loader)}")
 
-    model = get_model(num_classes=num_classes, pretrained=True, model_name=args.model_name)
+    pretrained = args.pretrained.lower() == "true"
+    model = get_model(num_classes=num_classes, pretrained=pretrained, model_name=args.model_name)
     model = model.to(device)
 
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)

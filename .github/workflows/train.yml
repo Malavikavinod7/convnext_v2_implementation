@@ -23,10 +23,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Create a tiny synthetic dataset for CI smoke test
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+
+          root = Path('data')
+          for class_name, color in [('class_1', (255, 0, 0)), ('class_2', (0, 0, 255))]:
+              class_dir = root / class_name
+              class_dir.mkdir(parents=True, exist_ok=True)
+              for i in range(4):
+                  img = Image.new('RGB', (64, 64), color=color)
+                  draw = ImageDraw.Draw(img)
+                  draw.rectangle((8, 8, 56, 56), fill=(255, 255, 255))
+                  draw.ellipse((18, 18, 46, 46), fill=color)
+                  img.save(class_dir / f'{class_name}_{i}.png')
+          PY
+          python Split_dataset.py --data-dir data --output-dir data_split --split-ratio 0.75
+
       - name: Run training
         run: |
-          python train.py --epochs 1 --batch-size 2 --data-dir data_split --output-dir outputs
+          python train.py --epochs 1 --batch-size 2 --data-dir data_split --output-dir outputs --pretrained false --num-workers 0
 
       - name: Run evaluation
         run: |
-          python plot_and_predict.py --data-dir data_split/val --output-dir outputs
+          python plot_and_predict.py --data-dir data_split/val --output-dir outputs --checkpoint outputs/best_model.pth
