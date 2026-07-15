@@ -4,6 +4,8 @@ import argparse
 import os
 from pathlib import Path
 
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -79,7 +81,9 @@ def run_evaluation(args=None):
     })
     df.to_csv(output_dir / "predictions.csv", index=False)
 
-    report = classification_report(all_labels, all_preds, target_names=class_names)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UserWarning)
+        report = classification_report(all_labels, all_preds, target_names=class_names, zero_division=0)
     (output_dir / "classification_report.txt").write_text(report)
 
     cm = confusion_matrix(all_labels, all_preds)
@@ -129,12 +133,19 @@ def run_evaluation(args=None):
     plt.savefig(output_dir / "pr_curves.png")
     plt.close()
 
-    features = TSNE(n_components=2, random_state=42).fit_transform(all_probs)
-    plt.scatter(features[:, 0], features[:, 1], c=all_labels, cmap="tab20", s=10)
-    plt.colorbar()
-    plt.title("t-SNE of Validation Set")
-    plt.savefig(output_dir / "tsne.png")
-    plt.close()
+    if len(all_probs) > 2:
+        features = TSNE(n_components=2, random_state=42, perplexity=min(30, len(all_probs) - 1)).fit_transform(all_probs)
+        plt.scatter(features[:, 0], features[:, 1], c=all_labels, cmap="tab20", s=10)
+        plt.colorbar()
+        plt.title("t-SNE of Validation Set")
+        plt.savefig(output_dir / "tsne.png")
+        plt.close()
+    else:
+        plt.figure()
+        plt.text(0.5, 0.5, "Not enough samples for t-SNE", ha="center", va="center")
+        plt.axis("off")
+        plt.savefig(output_dir / "tsne.png")
+        plt.close()
 
     prob_true, prob_pred = calibration_curve(all_labels == all_preds, df["confidence"], n_bins=10)
     plt.plot(prob_pred, prob_true, marker="o")
